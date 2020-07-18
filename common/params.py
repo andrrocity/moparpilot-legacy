@@ -202,6 +202,7 @@ keys = {
   "AndrewINDIActuatorEffectiveness": [TxType.PERSISTENT],
   "AndrewINDITimeConstant": [TxType.PERSISTENT],
   "AndrewSteerActuatorDelay": [TxType.PERSISTENT],
+  "AndrewTryLQR": [TxType.PERSISTENT],
 
   "DragonDashcamImpactDetectStarted": [TxType.CLEAR_ON_MANAGER_START],
 }
