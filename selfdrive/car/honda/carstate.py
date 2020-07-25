@@ -20,7 +20,7 @@ def calc_cruise_offset(offset, speed):
 
 
 def get_can_signals(CP):
-# this function generates lists for signal, messages and initial values
+  # this function generates lists for signal, messages and initial values
   signals = [
       ("XMISSION_SPEED", "ENGINE_DATA", 0),
       ("WHEEL_SPEED_FL", "WHEEL_SPEEDS", 0),
@@ -167,7 +167,7 @@ class CarState(CarStateBase):
     self.v_cruise_pcm_prev = 0
     self.cruise_mode = 0
 
-    # dp
+    #dp
     self.lkMode = True
 
   def update(self, cp, cp_cam):
@@ -224,8 +224,7 @@ class CarState(CarStateBase):
     ret.steeringAngle = cp.vl["STEERING_SENSORS"]['STEER_ANGLE']
     ret.steeringRate = cp.vl["STEERING_SENSORS"]['STEER_ANGLE_RATE']
 
-    # dp
-    # when user presses LKAS button on steering wheel
+    # dp - when user presses LKAS button on steering wheel
     if self.cruise_setting == 1:
       if cp.vl["SCM_BUTTONS"]["CRUISE_SETTING"] == 0:
         if self.lkMode:
@@ -357,5 +356,5 @@ class CarState(CarStateBase):
     if CP.carFingerprint in [CAR.CRV, CAR.CRV_EU, CAR.ACURA_RDX, CAR.ODYSSEY_CHN]:
       checks = [(0x194, 100)]
 
-    bus_cam = 1 if CP.carFingerprint in HONDA_BOSCH  and not CP.isPandaBlack else 2
+    bus_cam = 1 if CP.carFingerprint in HONDA_BOSCH and not CP.isPandaBlack else 2
     return CANParser(DBC[CP.carFingerprint]['pt'], signals, checks, bus_cam)

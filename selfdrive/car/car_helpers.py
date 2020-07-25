@@ -7,22 +7,27 @@ from selfdrive.car.fw_versions import get_fw_versions, match_fw_to_car
 from selfdrive.swaglog import cloudlog
 import cereal.messaging as messaging
 from selfdrive.car import gen_empty_fingerprint
-from common.dp import is_online
+from common.dp_common import is_online
 import threading
 import selfdrive.crash as crash
 
-from cereal import car
+from cereal import car, log
+EventName = car.CarEvent.EventName
+HwType = log.HealthData.HwType
 
-def get_startup_alert(car_recognized, controller_available):
-  alert = 'startup'
+
+def get_startup_event(car_recognized, controller_available, hw_type):
+  event = EventName.startup
   if Params().get("GitRemote", encoding="utf8") in ['git@github.com:commaai/openpilot.git', 'https://github.com/commaai/openpilot.git']:
     if Params().get("GitBranch", encoding="utf8") not in ['devel', 'release2-staging', 'dashcam-staging', 'release2', 'dashcam']:
-      alert = 'startupMaster'
+      event = EventName.startupMaster
   if not car_recognized:
-    alert = 'startupNoCar'
+    event = EventName.startupNoCar
   elif car_recognized and not controller_available:
-    alert = 'startupNoControl'
-  return alert
+    event = EventName.startupNoControl
+  # elif hw_type == HwType.whitePanda:
+  #   event = EventName.startupWhitePanda
+  return event
 
 
 def load_interfaces(brand_names):
@@ -74,11 +79,10 @@ def only_toyota_left(candidate_cars):
 
 # **** for use live only ****
 def fingerprint(logcan, sendcan, has_relay):
-  fixed_fingerprint = os.environ.get('FINGERPRINT', "")
-  dragon_car_model = Params().get("DragonCustomModel", encoding="utf8")
-  has_dragon_car_model = True if len(dragon_car_model) else False
+  fixed_fingerprint = os.environ.get('FINGERPRINT', "") or Params().get('dp_car_selected', encoding='utf8')
+  skip_fw_query = os.environ.get('SKIP_FW_QUERY', False)
 
-  if not has_dragon_car_model and has_relay and not fixed_fingerprint:
+  if has_relay and not fixed_fingerprint and not skip_fw_query:
     # Vin query only reliably works thorugh OBDII
     bus = 1
 
@@ -148,8 +152,13 @@ def fingerprint(logcan, sendcan, has_relay):
 
   source = car.CarParams.FingerprintSource.can
 
-  if has_dragon_car_model:
-    car_fingerprint = dragon_car_model
+  # If FW query returns exactly 1 candidate, use it
+  if len(fw_candidates) == 1:
+    car_fingerprint = list(fw_candidates)[0]
+    source = car.CarParams.FingerprintSource.fw
+
+  if fixed_fingerprint:
+    car_fingerprint = fixed_fingerprint
     source = car.CarParams.FingerprintSource.fixed
   else:
     # If FW query returns exactly 1 candidate, use it
@@ -163,6 +172,7 @@ def fingerprint(logcan, sendcan, has_relay):
 
   put_nonblocking("DragonCarModel", car_fingerprint)
   cloudlog.warning("fingerprinted %s", car_fingerprint)
+  put_nonblocking('dp_car_detected', car_fingerprint)
   return car_fingerprint, finger, vin, car_fw, source
 
 
@@ -190,3 +200,8 @@ def get_car(logcan, sendcan, has_relay=False):
   car_params.fingerprintSource = source
 
   return CarInterface(car_params, CarController, CarState), car_params
+
+def log_fingerprinted(candidate):
+  while True:
+    crash.capture_warning("fingerprinted %s" % candidate)
+    break

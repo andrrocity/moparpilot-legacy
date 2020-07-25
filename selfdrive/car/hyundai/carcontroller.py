@@ -3,10 +3,7 @@ from selfdrive.car import apply_std_steer_torque_limits
 from selfdrive.car.hyundai.hyundaican import create_lkas11, create_clu11, create_lfa_mfa
 from selfdrive.car.hyundai.values import Buttons, SteerLimitParams, CAR
 from opendbc.can.packer import CANPacker
-from common.params import Params
-params = Params()
-from common.dp import get_last_modified
-from common.dp import common_controller_update, common_controller_ctrl
+from common.dp_common import common_controller_ctrl
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 
@@ -17,7 +14,7 @@ def process_hud_alert(enabled, fingerprint, visual_alert, left_lane,
 
   # initialize to no line visible
   sys_state = 1
-  if left_lane and right_lane or sys_warning:  #HUD alert only display when LKAS status is active
+  if left_lane and right_lane or sys_warning:  # HUD alert only display when LKAS status is active
     if enabled or sys_warning:
       sys_state = 3
     else:
@@ -49,23 +46,11 @@ class CarController():
     self.last_lead_distance = 0
 
     # dp
-    self.dragon_enable_steering_on_signal = False
-    self.dragon_lat_ctrl = True
-    self.dp_last_modified = None
-    self.lane_change_enabled = True
+    self.last_blinker_on = False
+    self.blinker_end_frame = 0.
 
   def update(self, enabled, CS, frame, actuators, pcm_cancel_cmd, visual_alert,
-             left_lane, right_lane, left_lane_depart, right_lane_depart):
-
-    # dp
-    if frame % 500 == 0:
-      modified = get_last_modified()
-      if self.dp_last_modified != modified:
-        self.dragon_lat_ctrl, \
-        self.lane_change_enabled, \
-        self.dragon_enable_steering_on_signal = common_controller_update(self.lane_change_enabled)
-        self.dp_last_modified = modified
-
+             left_lane, right_lane, left_lane_depart, right_lane_depart, dragonconf):
     # Steering Torque
     new_steer = actuators.steer * SteerLimitParams.STEER_MAX
     apply_steer = apply_std_steer_torque_limits(new_steer, self.apply_steer_last, CS.out.steeringTorque, SteerLimitParams)
@@ -83,17 +68,22 @@ class CarController():
 
     self.apply_steer_last = apply_steer
 
-    # dp
-    lkas_active = common_controller_ctrl(enabled,
-                                         self.dragon_lat_ctrl,
-                                         self.dragon_enable_steering_on_signal,
-                                         CS.out.leftBlinker,
-                                         CS.out.rightBlinker,
-                                         lkas_active)
-
     sys_warning, sys_state, left_lane_warning, right_lane_warning =\
       process_hud_alert(enabled, self.car_fingerprint, visual_alert,
                         left_lane, right_lane, left_lane_depart, right_lane_depart)
+
+    # dp
+    blinker_on = CS.out.leftBlinker or CS.out.rightBlinker
+    if not enabled:
+      self.blinker_end_frame = 0
+    if self.last_blinker_on and not blinker_on:
+      self.blinker_end_frame = frame + dragonconf.dpSignalOffDelay
+    apply_steer = common_controller_ctrl(enabled,
+                                         dragonconf.dpLatCtrl,
+                                         dragonconf.dpSteeringOnSignal,
+                                         blinker_on or frame < self.blinker_end_frame,
+                                         apply_steer)
+    self.last_blinker_on = blinker_on
 
     can_sends = []
     can_sends.append(create_lkas11(self.packer, frame, self.car_fingerprint, apply_steer, lkas_active,

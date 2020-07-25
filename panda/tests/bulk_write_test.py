@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
+<<<<<<< HEAD
 import time
 import threading
+=======
+import threading
+import time
+from typing import Any, List
+>>>>>>> upstream/0.7.6-i18n
 
 from panda import Panda
 
@@ -18,6 +24,7 @@ if __name__ == "__main__":
   serials = Panda.list()
   if len(serials) != 2:
     raise Exception("Connect two pandas to perform this test!")
+<<<<<<< HEAD
   
   sender = Panda(serials[0])
   receiver = Panda(serials[1])
@@ -25,11 +32,24 @@ if __name__ == "__main__":
   sender.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
   receiver.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
   
+=======
+
+  sender = Panda(serials[0])
+  receiver = Panda(serials[1])
+
+  sender.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
+  receiver.set_safety_mode(Panda.SAFETY_ALLOUTPUT)
+
+>>>>>>> upstream/0.7.6-i18n
   # Start transmisson
   threading.Thread(target=flood_tx, args=(sender,)).start()
 
   # Receive as much as we can in a few second time period
+<<<<<<< HEAD
   rx = []
+=======
+  rx: List[Any] = []
+>>>>>>> upstream/0.7.6-i18n
   old_len = 0
   start_time = time.time()
   while time.time() - start_time < 2 or len(rx) > old_len:

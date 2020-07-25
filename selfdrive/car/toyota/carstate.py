@@ -135,15 +135,6 @@ class CarState(CarStateBase):
       ret.leftBlindspot = cp.vl["BSM"]['L_ADJACENT'] == 1
       ret.rightBlindspot = cp.vl["BSM"]['R_ADJACENT'] == 1
 
-    # dp
-    if self.dragon_toyota_stock_dsu and ret.cruiseState.available:
-      enable_acc = True
-      if ret.gearShifter in [car.CarState.GearShifter.reverse, car.CarState.GearShifter.park]:
-        enable_acc = False
-      if ret.seatbeltUnlatched or ret.doorOpen:
-        enable_acc = False
-      ret.cruiseState.enabled = enable_acc
-
     return ret
 
   @staticmethod

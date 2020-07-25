@@ -117,10 +117,10 @@ def set_update_available_params(new_version=False):
   params.put("LastUpdateTime", t.encode('utf8'))
 
   if new_version:
-    branch_name = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], OVERLAY_MERGED).rstrip()
+    branch_name = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], FINALIZED).rstrip()
     if branch_name == "testing":
       postfix = ''
-    elif branch_name == "devel-i18n" or branch_name == "dp-testing-300" or branch_name == "dp-testing-300-tf":
+    elif branch_name == "devel-i18n":
       postfix = '-DEV'
     else:
       postfix = '-REL'

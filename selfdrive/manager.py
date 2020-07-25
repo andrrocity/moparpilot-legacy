@@ -9,8 +9,9 @@ import shutil
 import subprocess
 import datetime
 import textwrap
+from typing import Dict, List
 from selfdrive.swaglog import cloudlog, add_logentries_handler
-from selfdrive.dragonpilot.dragonconf import dragonpilot_set_params
+from common.dp_conf import init_params_vals, update_params_vals
 
 from common.basedir import BASEDIR, PARAMS
 from common.android import ANDROID
@@ -100,7 +101,7 @@ if not prebuilt:
     # Read progress from stderr and update spinner
     while scons.poll() is None:
       try:
-        line = scons.stderr.readline()
+        line = scons.stderr.readline()  # type: ignore
         if line is None:
           continue
         line = line.rstrip()
@@ -118,12 +119,12 @@ if not prebuilt:
 
     if scons.returncode != 0:
       # Read remaining output
-      r = scons.stderr.read().split(b'\n')
+      r = scons.stderr.read().split(b'\n')   # type: ignore
       compile_output += r
 
       if retry:
         print("scons build failed, cleaning in")
-        for i in range(3,-1,-1):
+        for i in range(3, -1, -1):
           print("....%d" % i)
           time.sleep(1)
         subprocess.check_call(["scons", "-c"], cwd=BASEDIR, env=env)
@@ -148,7 +149,7 @@ if not prebuilt:
 import cereal
 import cereal.messaging as messaging
 
-from common.params import Params
+from common.params import Params, put_nonblocking
 import selfdrive.crash as crash
 from selfdrive.registration import register
 from selfdrive.version import version, dirty
@@ -162,6 +163,7 @@ ThermalStatus = cereal.log.ThermalData.ThermalStatus
 
 # comment out anything you don't want to run
 managed_processes = {
+  "systemd": "selfdrive.dragonpilot.systemd",
   "thermald": "selfdrive.thermald.thermald",
   "uploader": "selfdrive.loggerd.uploader",
   "deleter": "selfdrive.loggerd.deleter",
@@ -189,17 +191,14 @@ managed_processes = {
   "dmonitoringmodeld": ("selfdrive/modeld", ["./dmonitoringmodeld"]),
   "modeld": ("selfdrive/modeld", ["./modeld"]),
   "driverview": "selfdrive.controls.lib.driverview",
-  # dp
-  "dashcamd": "selfdrive.dragonpilot.dashcamd.dashcamd",
-  "shutdownd": "selfdrive.dragonpilot.shutdownd.shutdownd",
-  "appd": "selfdrive.dragonpilot.appd.appd",
+  "appd": "selfdrive.dragonpilot.appd",
 }
 
 daemon_processes = {
   "manage_athenad": ("selfdrive.athena.manage_athenad", "AthenadPid"),
 }
 
-running = {}
+running: Dict[str, Process] = {}
 def get_running():
   return running
 
@@ -207,7 +206,7 @@ def get_running():
 unkillable_processes = ['camerad']
 
 # processes to end with SIGINT instead of SIGTERM
-interrupt_processes = []
+interrupt_processes: List[str] = []
 
 # processes to end with SIGKILL instead of SIGTERM
 kill_processes = ['sensord', 'paramsd']
@@ -216,6 +215,7 @@ kill_processes = ['sensord', 'paramsd']
 green_temp_processes = ['uploader']
 
 persistent_processes = [
+  'systemd',
   'thermald',
   'logmessaged',
   'ui',
@@ -227,7 +227,7 @@ if ANDROID:
     'logcatd',
     'tombstoned',
     'updated',
-    'shutdownd',
+    'deleter',
     'appd',
   ]
 
@@ -257,7 +257,6 @@ if ANDROID:
     'clocksd',
     'gpsd',
     'dmonitoringmodeld',
-    'deleter',
   ]
 
 def register_managed_process(name, desc, car_started=False):
@@ -435,20 +434,14 @@ def manager_thread():
 
   params = Params()
 
-  # dp
   # save boot log
-  if params.get("DragonEnableLogger", encoding='utf8') == "1":
+  if params.get("dp_logger") == b'1':
     subprocess.call(["./loggerd", "--bootlog"], cwd=os.path.join(BASEDIR, "selfdrive/loggerd"))
 
-  if params.get("DragonEnableDashcam", encoding='utf8') == "1":
-    persistent_processes.append('dashcamd')
-    if params.get("DragonDashcamImpactDetect", encoding='utf8') == "1":
-      car_started_processes.remove('sensord')
-      persistent_processes.append('sensord')
-
-  # start daemon processes
-  for p in daemon_processes:
-    start_daemon_process(p)
+  if params.get("dp_athenad") == b'1':
+    # start daemon processes
+    for p in daemon_processes:
+      start_daemon_process(p)
 
   # start persistent processes
   for p in persistent_processes:
@@ -592,11 +585,12 @@ def main():
   if params.get("Passive") is None:
     raise Exception("Passive must be set to continue")
 
-  reg = False if params.get("DragonEnableRegistration", encoding='utf8') == "0" else True
+  init_params_vals(params, put_nonblocking)
+  update_params_vals(params)
 
   if ANDROID:
     update_apks()
-  manager_init(reg)
+  manager_init(params.get('dp_reg') == b'1')
   manager_prepare(spinner)
   spinner.close()
 
@@ -605,15 +599,17 @@ def main():
 
   # dp
   del managed_processes['tombstoned']
-  if params.get("DragonEnableLogger", encoding='utf8') == "0":
+  if params.get("dp_logger") == b'0':
     del managed_processes['loggerd']
     del managed_processes['logmessaged']
     del managed_processes['proclogd']
     del managed_processes['logcatd']
-
-  if params.get("DragonEnableUploader", encoding='utf8') == "0":
+    del managed_processes['deleter']
+  if params.get("dp_uploader") == b'0' or \
+      params.get("dp_atl") == b'1' or \
+      params.get("dp_steering_monitor") == b'0':
     del managed_processes['uploader']
-  if params.get("DragonEnableAutoUpdate", encoding='utf8') == "0":
+  if params.get("dp_updated") == b'0':
     del managed_processes['updated']
 
   # SystemExit on sigterm

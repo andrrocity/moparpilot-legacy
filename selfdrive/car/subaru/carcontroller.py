@@ -3,10 +3,7 @@ from selfdrive.car import apply_std_steer_torque_limits
 from selfdrive.car.subaru import subarucan
 from selfdrive.car.subaru.values import DBC
 from opendbc.can.packer import CANPacker
-from common.params import Params
-params = Params()
-from common.dp import get_last_modified
-from common.dp import common_controller_update, common_controller_ctrl
+from common.dp_common import common_controller_ctrl
 
 
 class CarControllerParams():
@@ -35,12 +32,10 @@ class CarController():
     self.packer = CANPacker(DBC[CP.carFingerprint]['pt'])
 
     # dp
-    self.dragon_enable_steering_on_signal = False
-    self.dragon_lat_ctrl = True
-    self.dp_last_modified = None
-    self.lane_change_enabled = True
+    self.last_blinker_on = False
+    self.blinker_end_frame = 0.
 
-  def update(self, enabled, CS, frame, actuators, pcm_cancel_cmd, visual_alert, left_line, right_line):
+  def update(self, enabled, CS, frame, actuators, pcm_cancel_cmd, visual_alert, left_line, right_line, dragonconf):
     """ Controls thread """
 
     # dp
@@ -76,12 +71,17 @@ class CarController():
         apply_steer = 0
 
       # dp
+      blinker_on = CS.out.leftBlinker or CS.out.rightBlinker
+      if not enabled:
+        self.blinker_end_frame = 0
+      if self.last_blinker_on and not blinker_on:
+        self.blinker_end_frame = frame + dragonconf.dpSignalOffDelay
       apply_steer = common_controller_ctrl(enabled,
-                                           self.dragon_lat_ctrl,
-                                           self.dragon_enable_steering_on_signal,
-                                           CS.out.leftBlinker,
-                                           CS.out.rightBlinker,
+                                           dragonconf.dpLatCtrl,
+                                           dragonconf.dpSteeringOnSignal,
+                                           blinker_on or frame < self.blinker_end_frame,
                                            apply_steer)
+      self.last_blinker_on = blinker_on
 
       can_sends.append(subarucan.create_steering_control(self.packer, apply_steer, frame, P.STEER_STEP))
 

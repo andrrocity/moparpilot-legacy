@@ -18,6 +18,7 @@ from common import android
 from common.params import Params
 from common.api import Api
 from common.xattr import getxattr, setxattr
+import cereal.messaging as messaging
 
 UPLOAD_ATTR_NAME = 'user.upload'
 UPLOAD_ATTR_VALUE = b'1'
@@ -166,7 +167,6 @@ class Uploader():
       if url_resp.status_code == 412:
         self.last_resp = url_resp
         return
-        
       url_resp_json = json.loads(url_resp.text)
       url = url_resp_json['url']
       headers = url_resp_json['headers']
@@ -174,9 +174,11 @@ class Uploader():
 
       if fake_upload:
         cloudlog.info("*** WARNING, THIS IS A FAKE UPLOAD TO %s ***" % url)
+
         class FakeResponse():
           def __init__(self):
             self.status_code = 200
+
         self.last_resp = FakeResponse()
       else:
         with open(fn, "rb") as f:
@@ -196,7 +198,7 @@ class Uploader():
 
     return self.last_resp
 
-  def upload(self, key, fn):
+  def upload(self, key, fn, atl = False):
     try:
       sz = os.path.getsize(fn)
     except OSError:
@@ -207,7 +209,9 @@ class Uploader():
 
     cloudlog.info("checking %r with size %r", key, sz)
 
-    if sz == 0:
+    if atl:
+      setxattr(fn, UPLOAD_ATTR_NAME, UPLOAD_ATTR_VALUE)
+    elif sz == 0:
       try:
         # tag files of 0 size as uploaded
         setxattr(fn, UPLOAD_ATTR_NAME, UPLOAD_ATTR_VALUE)
@@ -231,7 +235,7 @@ class Uploader():
 
     return success
 
-def uploader_fn(exit_event):
+def uploader_fn(exit_event, sm=None):
   cloudlog.info("uploader_fn")
 
   params = Params()
@@ -243,11 +247,23 @@ def uploader_fn(exit_event):
 
   uploader = Uploader(dongle_id, ROOT)
 
+  # dp
+  if sm is None:
+    sm = messaging.SubMaster(['dragonConf'])
+  atl = False
+
   backoff = 0.1
   while True:
     allow_raw_upload = (params.get("IsUploadRawEnabled") != b"0")
     on_hotspot = is_on_hotspot()
     on_wifi = is_on_wifi()
+
+    sm.update(1000)
+    if sm.updated['dragonConf']:
+      on_wifi = True if sm['dragonConf'].dpUploadOnMobile else on_wifi
+      on_hotspot = False if sm['dragonConf'].dpUploadOnHotspot else on_hotspot
+      atl = sm['dragonConf'].dpAtl
+
     should_upload = on_wifi and not on_hotspot
 
     if exit_event.is_set():
@@ -262,7 +278,7 @@ def uploader_fn(exit_event):
 
     cloudlog.event("uploader_netcheck", is_on_hotspot=on_hotspot, is_on_wifi=on_wifi)
     cloudlog.info("to upload %r", d)
-    success = uploader.upload(key, fn)
+    success = uploader.upload(key, fn, atl)
     if success:
       backoff = 0.1
     else:
@@ -271,8 +287,8 @@ def uploader_fn(exit_event):
       backoff = min(backoff*2, 120)
     cloudlog.info("upload done, success=%r", success)
 
-def main():
-  uploader_fn(threading.Event())
+def main(sm=None):
+  uploader_fn(threading.Event(), sm)
 
 if __name__ == "__main__":
   main()

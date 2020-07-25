@@ -13,7 +13,7 @@ from selfdrive.controls.lib.speed_smoother import speed_smoother
 from selfdrive.controls.lib.longcontrol import LongCtrlState, MIN_CAN_SPEED
 from selfdrive.controls.lib.fcw import FCWChecker
 from selfdrive.controls.lib.long_mpc import LongitudinalMpc
-from common.dp import get_last_modified
+from selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX
 
 MAX_SPEED = 255.0
 
@@ -23,7 +23,7 @@ AWARENESS_DECEL = -0.2     # car smoothly decel at .2m/s^2 when user is distract
 
 # lookup tables VS speed to determine min and max accels in cruise
 # make sure these accelerations are smaller than mpc limits
-_A_CRUISE_MIN_V  = [-1.0, -.8, -.67, -.5, -.30]
+_A_CRUISE_MIN_V = [-1.0, -.8, -.67, -.5, -.30]
 _A_CRUISE_MIN_BP = [   0., 5.,  10., 20.,  40.]
 
 # need fast accel at very low speed for stop and go
@@ -129,13 +129,7 @@ class Planner():
     self.params = Params()
     self.first_loop = True
 
-    # dp
-    self.dragon_slow_on_curve = True
-    self.dragon_alt_accel_profile = False
-    self.dragon_fast_accel = False
-    self.dragon_accel_profile = AP_OFF
-    self.last_ts = 0.
-    self.dp_last_modified = None
+    self.dp_slow_on_curve = True
 
   def choose_solution(self, v_cruise_setpoint, enabled):
     if enabled:
@@ -186,6 +180,8 @@ class Planner():
     long_control_state = sm['controlsState'].longControlState
     v_cruise_kph = sm['controlsState'].vCruise
     force_slow_decel = sm['controlsState'].forceDecel
+
+    v_cruise_kph = min(v_cruise_kph, V_CRUISE_MAX)
     v_cruise_setpoint = v_cruise_kph * CV.KPH_TO_MS
 
     lead_1 = sm['radarState'].leadOne
@@ -194,7 +190,9 @@ class Planner():
     enabled = (long_control_state == LongCtrlState.pid) or (long_control_state == LongCtrlState.stopping)
     following = lead_1.status and lead_1.dRel < 45.0 and lead_1.vLeadK > v_ego and lead_1.aLeadK > 0.0
 
-    if self.dragon_slow_on_curve and len(sm['model'].path.poly):
+    if sm.updated['dragonConf']:
+      self.dp_slow_on_curve = sm['dragonConf'].dpSlowOnCurve
+    if self.dp_slow_on_curve and len(sm['model'].path.poly):
       path = list(sm['model'].path.poly)
 
       # Curvature of polynomial https://en.wikipedia.org/wiki/Curvature#Curvature_of_the_graph_of_a_function

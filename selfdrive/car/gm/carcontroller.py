@@ -6,6 +6,7 @@ from selfdrive.car import apply_std_steer_torque_limits
 from selfdrive.car.gm import gmcan
 from selfdrive.car.gm.values import DBC, CanBus
 from opendbc.can.packer import CANPacker
+from common.dp_common import common_controller_ctrl
 
 VisualAlert = car.CarControl.HUDControl.VisualAlert
 
@@ -60,19 +61,28 @@ class CarController():
     self.apply_steer_last = 0
     self.lka_icon_status_last = (False, False)
     self.steer_rate_limited = False
+    self.fcw_frames = 0
 
     self.params = CarControllerParams()
 
     self.packer_pt = CANPacker(DBC[CP.carFingerprint]['pt'])
     self.packer_ch = CANPacker(DBC[CP.carFingerprint]['chassis'])
 
+    # dp
+    self.last_blinker_on = False
+    self.blinker_end_frame = 0.
+
   def update(self, enabled, CS, frame, actuators, \
-             hud_v_cruise, hud_show_lanes, hud_show_car, hud_alert):
+             hud_v_cruise, hud_show_lanes, hud_show_car, hud_alert, dragonconf):
 
     P = self.params
 
     # Send CAN commands.
     can_sends = []
+
+    # FCW: trigger FCWAlert for 100 frames (4 seconds)
+    if hud_alert == VisualAlert.fcw:
+      self.fcw_frames = 100
 
     ### STEER ###
 
@@ -84,6 +94,19 @@ class CarController():
         self.steer_rate_limited = new_steer != apply_steer
       else:
         apply_steer = 0
+
+      # dp
+      blinker_on = CS.out.leftBlinker or CS.out.rightBlinker
+      if not enabled:
+        self.blinker_end_frame = 0
+      if self.last_blinker_on and not blinker_on:
+        self.blinker_end_frame = frame + dragonconf.dpSignalOffDelay
+      apply_steer = common_controller_ctrl(enabled,
+                                           dragonconf.dpLatCtrl,
+                                           dragonconf.dpSteeringOnSignal,
+                                           blinker_on or frame < self.blinker_end_frame,
+                                           apply_steer)
+      self.last_blinker_on = blinker_on
 
       self.apply_steer_last = apply_steer
       idx = (frame // P.STEER_STEP) % 4
@@ -122,7 +145,13 @@ class CarController():
 
     # Send dashboard UI commands (ACC status), 25hz
     if (frame % 4) == 0:
-      can_sends.append(gmcan.create_acc_dashboard_command(self.packer_pt, CanBus.POWERTRAIN, enabled, hud_v_cruise * CV.MS_TO_KPH, hud_show_car))
+      # Send FCW if applicable
+      send_fcw = 0
+      if self.fcw_frames > 0:
+        send_fcw = 0x3
+        self.fcw_frames -= 1
+
+      can_sends.append(gmcan.create_acc_dashboard_command(self.packer_pt, CanBus.POWERTRAIN, enabled, hud_v_cruise * CV.MS_TO_KPH, hud_show_car, send_fcw))
 
     # Radar needs to know current speed and yaw rate (50hz),
     # and that ADAS is alive (10hz)
@@ -150,8 +179,7 @@ class CarController():
     lka_active = CS.lkas_status == 1
     lka_critical = lka_active and abs(actuators.steer) > 0.9
     lka_icon_status = (lka_active, lka_critical)
-    if frame % P.CAMERA_KEEPALIVE_STEP == 0 \
-        or lka_icon_status != self.lka_icon_status_last:
+    if frame % P.CAMERA_KEEPALIVE_STEP == 0 or lka_icon_status != self.lka_icon_status_last:
       steer_alert = hud_alert == VisualAlert.steerRequired
       can_sends.append(gmcan.create_lka_icon_command(CanBus.SW_GMLAN, lka_active, lka_critical, steer_alert))
       self.lka_icon_status_last = lka_icon_status

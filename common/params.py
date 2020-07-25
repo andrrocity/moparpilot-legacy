@@ -22,16 +22,14 @@ file in place without messing with <params_dir>/d.
 """
 import time
 import os
-import string
-import binascii
 import errno
-import sys
 import shutil
 import fcntl
 import tempfile
 import threading
 from enum import Enum
 from common.basedir import PARAMS
+from common.dp_conf import init_params_keys
 
 def mkdirs_exists_ok(path):
   try:
@@ -207,6 +205,7 @@ keys = {
   "DragonDashcamImpactDetectStarted": [TxType.CLEAR_ON_MANAGER_START],
 }
 
+keys = init_params_keys(keys, [TxType.PERSISTENT])
 
 def fsync_dir(path):
   fd = os.open(path, os.O_RDONLY)
@@ -295,7 +294,8 @@ class DBReader(DBAccessor):
     finally:
       lock.release()
 
-  def __exit__(self, type, value, traceback): pass
+  def __exit__(self, type, value, traceback):
+    pass
 
 
 class DBWriter(DBAccessor):
@@ -498,22 +498,3 @@ def put_nonblocking(key, val):
   t = threading.Thread(target=f, args=(key, val))
   t.start()
   return t
-
-
-if __name__ == "__main__":
-  params = Params()
-  if len(sys.argv) > 2:
-    params.put(sys.argv[1], sys.argv[2])
-  else:
-    for k in keys:
-      pp = params.get(k)
-      if pp is None:
-        print("%s is None" % k)
-      elif all(chr(c) in string.printable for c in pp):
-        print("%s = %s" % (k, pp))
-      else:
-        print("%s = %s" % (k, binascii.hexlify(pp)))
-
-  # Test multiprocess:
-  # seq 0 100000 | xargs -P20 -I{} python common/params.py DongleId {} && sleep 0.05
-  # while python common/params.py DongleId; do sleep 0.05; done

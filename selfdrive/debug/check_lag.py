@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+<<<<<<< HEAD
+=======
+# type: ignore
+
+>>>>>>> upstream/0.7.6-i18n
 import cereal.messaging as messaging
 from cereal.services import service_list
 
