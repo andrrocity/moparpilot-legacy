@@ -103,9 +103,9 @@ class PathPlanner():
     if cur_time - self.last_ts >= 5.:
       modified = get_last_modified()
       if self.dp_last_modified != modified:
-        self.lane_change_enabled = True if self.params.get("LaneChangeEnabled", encoding='utf8') == "1" else False
+        self.lane_change_enabled = True # if self.params.get("LaneChangeEnabled", encoding='utf8') == "1" else False
         if self.lane_change_enabled:
-          self.dragon_auto_lc_enabled = True if self.params.get("DragonEnableAutoLC", encoding='utf8') == "1" else False
+          self.dragon_auto_lc_enabled = True #if self.params.get("DragonEnableAutoLC", encoding='utf8') == "1" else False
           # adjustable assisted lc min speed
           try:
             self.dragon_assisted_lc_min_mph = float(self.params.get("DragonAssistedLCMinMPH", encoding='utf8'))
@@ -173,7 +173,7 @@ class PathPlanner():
 
     # Lane change logic
     one_blinker = sm['carState'].leftBlinker != sm['carState'].rightBlinker
-    below_lane_change_speed = v_ego < self.dragon_assisted_lc_min_mph
+    below_lane_change_speed = False # v_ego < self.dragon_assisted_lc_min_mph
 
     if sm['carState'].leftBlinker:
       self.lane_change_direction = LaneChangeDirection.left
@@ -191,14 +191,15 @@ class PathPlanner():
       lane_change_prob = self.LP.l_lane_change_prob + self.LP.r_lane_change_prob
 
       # dragonpilot auto lc
-      if not below_lane_change_speed and self.dragon_auto_lc_enabled and v_ego >= self.dragon_auto_lc_min_mph:
+      #if not below_lane_change_speed and self.dragon_auto_lc_enabled and v_ego >= self.dragon_auto_lc_min_mph:
+      if True:
         # we allow auto lc when speed reached dragon_auto_lc_min_mph
         self.dragon_auto_lc_allowed = True
 
         if self.dragon_auto_lc_timer is None:
           # we only set timer when in preLaneChange state, dragon_auto_lc_delay delay
           if self.lane_change_state == LaneChangeState.preLaneChange:
-            self.dragon_auto_lc_timer = cur_time + self.dragon_auto_lc_delay
+            self.dragon_auto_lc_timer = cur_time + self.dragon_auto_lc_delayf
         elif cur_time >= self.dragon_auto_lc_timer:
           # if timer is up, we set torque_applied to True to fake user input
           torque_applied = True
