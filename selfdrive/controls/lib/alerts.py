@@ -170,8 +170,8 @@ ALERTS = [
 
   Alert(
       "startup",
-      _("Chrysler AutoPilot"),
-      _("Starting up..."),
+      _("Starting Autopilot..."),
+      _("Codemotive.io"),
       AlertStatus.critical, AlertSize.full,
       Priority.MID, VisualAlert.steerRequired, AudibleAlert.chimeWarning1, 0., 0., 5.),
 
