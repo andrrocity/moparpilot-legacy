@@ -26,7 +26,7 @@ from common.realtime import sec_since_boot
 from cereal.services import service_list
 from selfdrive.swaglog import cloudlog
 
-ATHENA_HOST = os.getenv('ATHENA_HOST', 'wss://athena.comma.ai')
+ATHENA_HOST = os.getenv('ATHENA_HOST', 'wss://athena.openpilot.api.codemotive.io')
 HANDLER_THREADS = os.getenv('HANDLER_THREADS', 4)
 LOCAL_PORT_WHITELIST = set([8022])
 
