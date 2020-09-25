@@ -40,8 +40,8 @@ class CarInterface(CarInterfaceBase):
       ret.wheelbase = 3.05308 # in meters
       ret.steerRatio = 15.5 # 2013 V-6 (RWD) — 15.5:1 V-6 (AWD) — 16.5:1 V-8 (RWD) — 15.5:1 V-8 (AWD) — 16.5:1
       ret.mass = 1828.0 + STD_CARGO_KG # 2013 V-6 RWD
-      # ret.lateralTuning.pid.kf = 0.00006   # full torque for 10 deg at 80mph means 0.00007818594
-      # ret.steerLimitTimer = 0.1
+      ret.lateralTuning.pid.kf = 0.00006   # full torque for 10 deg at 80mph means 0.00007818594
+      ret.steerLimitTimer = 0.1
 
       
   # "AndrewSteerRateCost": [TxType.PERSISTENT],
@@ -51,59 +51,42 @@ class CarInterface(CarInterfaceBase):
   # "AndrewINDIActuatorEffectiveness": [TxType.PERSISTENT],
   # "AndrewINDITimeConstant": [TxType.PERSISTENT],
 
-    # Change to try on all vehicles!!
-    params = Params()
+    # # Change to try on all vehicles!!
+    # params = Params()
 
-    if params.get("AndrewSteerRateCost") is None:
-      params.put("AndrewSteerRateCost", "1.0")
+    # if params.get("AndrewSteerRateCost") is None:
+    #   params.put("AndrewSteerRateCost", "1.0")
     
-    if params.get("AndrewSteerLimitTimer") is None:
-      params.put("AndrewSteerLimitTimer", "0.8")
+    # if params.get("AndrewSteerLimitTimer") is None:
+    #   params.put("AndrewSteerLimitTimer", "0.8")
     
-    if params.get("AndrewINDIInnerLoopGain") is None:
-      params.put("AndrewINDIInnerLoopGain", "2.53")
+    # if params.get("AndrewINDIInnerLoopGain") is None:
+    #   params.put("AndrewINDIInnerLoopGain", "2.53")
     
-    if params.get("AndrewINDIOuterLoopGain") is None:
-      params.put("AndrewINDIOuterLoopGain", "0.92")
+    # if params.get("AndrewINDIOuterLoopGain") is None:
+    #   params.put("AndrewINDIOuterLoopGain", "0.92")
     
-    if params.get("AndrewINDIActuatorEffectiveness") is None:
-      params.put("AndrewINDIActuatorEffectiveness", "1.35")
+    # if params.get("AndrewINDIActuatorEffectiveness") is None:
+    #   params.put("AndrewINDIActuatorEffectiveness", "1.35")
     
-    if params.get("AndrewINDITimeConstant") is None:
-      params.put("AndrewINDITimeConstant", "1.0")
+    # if params.get("AndrewINDITimeConstant") is None:
+    #   params.put("AndrewINDITimeConstant", "1.0")
 
-    if params.get("AndrewSteerActuatorDelay") is None:
-      params.put("AndrewSteerActuatorDelay", "0.1")
+    # if params.get("AndrewSteerActuatorDelay") is None:
+    #   params.put("AndrewSteerActuatorDelay", "0.1")
     
-    ret.steerActuatorDelay =  float(params.get("AndrewSteerActuatorDelay", encoding='utf8'))
+    # ret.steerActuatorDelay =  float(params.get("AndrewSteerActuatorDelay", encoding='utf8'))
 
-    ret.steerRateCost = float(params.get("AndrewSteerRateCost", encoding='utf8'))
-    ret.steerLimitTimer = float(params.get("AndrewSteerLimitTimer", encoding='utf8'))
-
-    ret.lateralTuning.init('indi')
-    ret.lateralTuning.indi.innerLoopGain = float(params.get("AndrewINDIInnerLoopGain", encoding='utf8'))
-    ret.lateralTuning.indi.outerLoopGain = float(params.get("AndrewINDIOuterLoopGain", encoding='utf8'))
-    ret.lateralTuning.indi.timeConstant = float(params.get("AndrewINDITimeConstant", encoding='utf8'))
-    ret.lateralTuning.indi.actuatorEffectiveness = float(params.get("AndrewINDIActuatorEffectiveness", encoding='utf8'))
-    
-    # ret.steerRateCost = 1.0
-    # ret.steerLimitTimer = 0.8
+    # ret.steerRateCost = float(params.get("AndrewSteerRateCost", encoding='utf8'))
+    # ret.steerLimitTimer = float(params.get("AndrewSteerLimitTimer", encoding='utf8'))
 
     # ret.lateralTuning.init('indi')
-    # ret.lateralTuning.indi.innerLoopGain = 2.53
-    # ret.lateralTuning.indi.outerLoopGain = 0.92
-    # ret.lateralTuning.indi.timeConstant = 1.0
-    # ret.lateralTuning.indi.actuatorEffectiveness = 1.35
-      # ret.lateralTuning.init('lqr')
-      # ret.lateralTuning.lqr.scale = 1500.0
-      # ret.lateralTuning.lqr.ki = 0.05
-      # ret.lateralTuning.lqr.a = [0., 1., -0.22619643, 1.21822268]
-      # ret.lateralTuning.lqr.b = [-1.92006585e-04, 3.95603032e-05]
-      # ret.lateralTuning.lqr.c = [1., 0.]
-      # ret.lateralTuning.lqr.k = [-110.73572306, 451.22718255]
-      # ret.lateralTuning.lqr.l = [0.3233671, 0.3185757]
-      # ret.lateralTuning.lqr.dcGain = 0.002237852961363602
-      
+    # ret.lateralTuning.indi.innerLoopGain = float(params.get("AndrewINDIInnerLoopGain", encoding='utf8'))
+    # ret.lateralTuning.indi.outerLoopGain = float(params.get("AndrewINDIOuterLoopGain", encoding='utf8'))
+    # ret.lateralTuning.indi.timeConstant = float(params.get("AndrewINDITimeConstant", encoding='utf8'))
+    # ret.lateralTuning.indi.actuatorEffectiveness = float(params.get("AndrewINDIActuatorEffectiveness", encoding='utf8'))
+    
+
     ret.centerToFront = ret.wheelbase * 0.44
 
     ret.minSteerSpeed = 3.8  # m/s
